@@ -29,12 +29,12 @@ def GenXMLfile(fileList):
     xmlfile=open(xmlfilename,'w')  # a的含义是追加写入，不存在则创建，w是覆盖掉原来的重新写入
     hostname=socket.gethostname()
     ipaddr=socket.gethostbyname(hostname)  #获取ip地址，是真的地址，会输出的那种，类型是str
-    print('<FileList>',file=xmlfile)
+    #print('<FileList>',file=xmlfile)
     for afile in fileList:
-        filestr='<File FileID="'+str(fileID)+'" FileName="'+ afile + '" SourceIP="' + ipaddr +'"/>'
+        filestr=afile + ' ' + ipaddr
         print(filestr,file=xmlfile)
         fileID+=1
-    print('</FileList>',file=xmlfile)
+    #print('</FileList>',file=xmlfile)
     xmlfile.close()
 
 #GenXMLfile(LocalFileList())

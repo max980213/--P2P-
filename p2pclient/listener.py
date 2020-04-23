@@ -2,6 +2,7 @@ import socket
 import threading
 import filecreater #自定义包
 import os
+import sender
 
 InstructionListenerPort=34525 # 指定监听端口
 FileListenerPort=34526  # 接收文件
@@ -9,11 +10,14 @@ FileListenerPort=34526  # 接收文件
 encoding='utf-8'
 BUFSIZE=1024
 
+sharedfilename='SharedFile.xml'
+
 
 class InstructionReader(threading.Thread): # 对接收到的消息进行处理
-    def __init__(self,client):
+    def __init__(self,client,cltadd):
         threading.Thread.__init__(self)
         self.client=client
+        self.cltadd=cltadd
     def run(self):
         while True:
             try:  # 也可用 if data:来实现判断是否有连接
@@ -26,14 +30,19 @@ class InstructionReader(threading.Thread): # 对接收到的消息进行处理
                 cmd=cmdlist[0]
                 if cmd=='download':     # if-elif中间的函数体不可为空，加一句注释也不行，会报错：要求缩进
                     # 将本机某一所需文件发给对方
-                    print('a')
-                elif str=='update':
+                    if self.cltadd[0]==socket.gethostbyname(socket.gethostname()):
+                        print('不可以自己下载自己噢')
+                        continue
+                    filename=cmdlist[1]
+                    sender.filesend(self.cltadd[0],filename).start()
+                #elif cmd=='get':   # 客户端没这个功能
+                #    FileListener('SharedFild.xml').start() #准备接收共享文件列表
+                elif cmd=='update':
                     filecreater.UpdateXMLfile()
                     # 然后将更新好的数据重新返回到服务器
-                elif str=='connect':
+                elif cmd=='connect':
                     print('c')
                     ## 接收某一主机的直连请求
-                print(str)
             else:
                 break
                 
@@ -52,7 +61,7 @@ class InstructionListener(threading.Thread):  # 利用继承线程类，来创�
         while True:
             client,cltadd=self.sock.accept() # 接收连接请求
             print('收到来自 %s 的连接！' % cltadd[0])
-            InstructionReader(client).start()  # 调用另一个线程处理接受的数据
+            InstructionReader(client,cltadd).start()  # 调用另一个线程处理接受的数据
 
 
 
@@ -66,28 +75,40 @@ class FileListener(threading.Thread):  # 监听文件端口
         self.sock.bind(('0.0.0.0',self.port))
         self.sock.listen(0) #开始监听该端口
     def run(self):
-        print("开始监听文件！")
-        wfile=open(filename,'w')
-        while True:
-            try:
-                client,cltadd=self.sock.accept() #接收到了连接
-                while True:
-                    line=client.recv(BUFSIZE)  # 多次接收
-                    if line:
-                        wfile.write(line)
-                    else:
-                        flag=1
-                        break
-                if flag:
+        client,cltadd=self.sock.accept() #接收到了连接，一次接收对应一个线程
+        print(cltadd)
+        print("开始监听文件 %s！" % self.filename)
+        if self.filename==sharedfilename:
+            file=open('PublicSharedFile.xml','w')
+            while True:
+                line=client.recv(BUFSIZE).decode(encoding)
+                if line:
+                    file.write(line)
+                    print(line)
+                else:
+                    print('接收完毕！')
+                    client.shutdown(2)
+                    #self.sock.shutdown(2)
+                    break
+                
+        else:
+            wfile=open(self.filename,'w')
+            while True:
+                line=client.recv(BUFSIZE).decode(encoding)  # 多次接收
+                if line:
+                    wfile.write(line)
+                else:
                     print('接收完毕')
                     break
-            except:
-                print('连接失败！')
-                wfile.close()
-                os.remove(filename)
-                break
-        wfile.close()
+            wfile.close()
+            client.shutdown(2)
+            #self.sock.shutdown(2)
+
+
+
+        
 if __name__=='__main__':
+    filecreater.UpdateXMLfile()
     listener=InstructionListener()
     listener.start()
             

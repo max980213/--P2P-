@@ -7,31 +7,41 @@ import sender
 hostip="192.168.1.101"
 InstructionListenerPort=34525 # 指定监听端口
 FileListenerPort=34526  # 接收文件端口
+servercmdport=12005
+serverfileport=12006
+sharedfilename='SharedFile.xml'
+
 encoding='utf-8'
 BUFSIZE=1024
 
+
+def updatetoserver():
+    filecreater.UpdateXMLfile()  # 先更新本地
+    sock=socket.socket()
+    sock.connect((hostip,serverfileport))
+    file=open(sharedfilename,'r')
+    for line in file:
+        line=line.encode(encoding)
+        sock.send(line)
+    file.close()
+    sock.close()
+
+
+
+
 def main():
     sock=socket.socket()
-    sock.connect((hostip,InstructionListenerPort))
-    #instructionlistener=listener.InstructionListener()
-    #instruction.start()   #连接服务器并开始监听命令端口
+    sock.connect((hostip,servercmdport))  # 一直连着，不让他断
+    updatetoserver()  #连接后先更新本地，再向服务器更新
+    instructionlistener=listener.InstructionListener()
+    instructionlistener.start()   #连接服务器并开始监听命令端口
     print('已连接服务器！现在可以进行通信了')
     print('请输入操作的指令!')
-    while True:
-        inputlist=input().split(' ')  # 会生成列表
-        cmd=inputlist[0]
-        if cmd=='update':
-            filecreater.UpdateXMLfile()
-            # 并向服务器发送更新指令
-        elif cmd=='download':
-            filename=inputlist[1]
-            #向服务器发送下载命令，服务器返回ip，再建立连接下载
-        elif cmd=='exit':
-            print('Bye Bye!')
-            exit()
-        else:
-            print('命令不合法!')
-        
+    sender.msgsend(sock).start()  # 这个线程退出后，程序不会退出是因为上面两个线程还在跑
+                                  # 尝试将监听命令的线程放到该线程里开始
+                                  # 并不好用
+
+
 
 
 
