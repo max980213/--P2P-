@@ -82,13 +82,16 @@ class filesend(threading.Thread):  # 文件发送线程
                     except:
                         print('对方已关闭连接！')
                         break
-                f.close()
+                file.close()
                 self.sock.close()
             except:
                 print('对方已关闭连接！')
                 self.sock.close()
         else:
-            print('该文件不存在！')# 应该将不存在的信息返回
+            self.sock.connect((self.ip,self.port))
+            self.sock.send(('gaiwenjianbucunzai!').encode(encoding))
+            self.sock.close()
+            print('文件不存在咯！')
         
 
 

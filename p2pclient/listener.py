@@ -3,6 +3,7 @@ import threading
 import filecreater #自定义包
 import os
 import sender
+import tkinter
 
 InstructionListenerPort=34525 # 指定监听端口
 FileListenerPort=34526  # 接收文件
@@ -30,9 +31,9 @@ class InstructionReader(threading.Thread): # 对接收到的消息进行处理
                 cmd=cmdlist[0]
                 if cmd=='download':     # if-elif中间的函数体不可为空，加一句注释也不行，会报错：要求缩进
                     # 将本机某一所需文件发给对方
-                    if self.cltadd[0]==socket.gethostbyname(socket.gethostname()):
-                        print('不可以自己下载自己噢')
-                        continue
+                    #if self.cltadd[0]==socket.gethostbyname(socket.gethostname()):
+                        #print('不可以自己下载自己噢')
+                        #continue
                     filename=cmdlist[1]
                     sender.filesend(self.cltadd[0],filename).start()
                 #elif cmd=='get':   # 客户端没这个功能
@@ -67,41 +68,61 @@ class InstructionListener(threading.Thread):  # 利用继承线程类，来创�
 
 #整合在一起，重写这部分代码
 class FileListener(threading.Thread):  # 监听文件端口
-    def __init__(self,filename):
+    def __init__(self,root,filename):
         threading.Thread.__init__(self)
         self.filename=filename
+        self.root=root
         self.port=FileListenerPort
         self.sock=socket.socket()
         self.sock.bind(('0.0.0.0',self.port))
         self.sock.listen(0) #开始监听该端口
     def run(self):
         client,cltadd=self.sock.accept() #接收到了连接，一次接收对应一个线程
-        print(cltadd)
-        print("开始监听文件 %s！" % self.filename)
+        #print(cltadd)
+        self.root.outputbox.insert(tkinter.END,"开始监听文件 %s ！\n\n" % self.filename)
+        self.root.outputbox.see(tkinter.END)
+        self.root.outputbox.update()
         if self.filename==sharedfilename:
             file=open('PublicSharedFile.xml','w')
             while True:
                 line=client.recv(BUFSIZE).decode(encoding)
                 if line:
                     file.write(line)
-                    print(line)
+                    self.root.outputbox.insert(tkinter.END,line)
+
                 else:
-                    print('接收完毕！')
+                    self.root.outputbox.insert(tkinter.END,'接收完毕！\n\n')
+                    self.root.outputbox.see(tkinter.END)
+                    self.root.outputbox.update()
                     client.shutdown(2)
+                    file.close()
                     #self.sock.shutdown(2)
                     break
                 
         else:
             wfile=open(self.filename,'w')
             while True:
-                line=client.recv(BUFSIZE).decode(encoding)  # 多次接收
-                if line:
-                    wfile.write(line)
-                else:
-                    print('接收完毕')
+                try:
+                    line=client.recv(BUFSIZE).decode(encoding)  # 多次接收
+                    if line=='gaiwenjianbucunzai!':
+                        self.root.outputbox.insert(tkinter.END,"对方好像删掉了该文件！无法下载！\n\n")
+                        wfile.close()
+                        os.remove(filename)
+                        break
+                    elif line:
+                        wfile.write(line)
+                    else:
+                        self.root.outputbox.insert(tkinter.END,'接收完毕！\n\n')
+                        self.root.outputbox.see(tkinter.END)
+                        self.root.outputbox.update()
+                        wfile.close()
+                        break
+                except:
+                    self.root.outputbox.insert(tkinter.END,"对方断开了连接，下载失败\n\n")
+                    wfile.close()
                     break
-            wfile.close()
-            client.shutdown(2)
+            #wfile.close()
+            client.close()
             #self.sock.shutdown(2)
 
 
